@@ -28,4 +28,11 @@ COPY app /opt/app
 
 EXPOSE 8080
 
-CMD ["python3", "main.py", "-c", "config.yaml", "-v"]
+ENV RHOST=''
+ENV RPORT=10008
+ENV RUSER=''
+ENV RPASSWORD=''
+ENV RQUEUE=''
+
+CMD ["sh", "-c", "python3 main.py -c config.yaml -v -b ${RHOST} -p $RPORT -u ${RUSER} -s ${RPASSWORD} -q ${RQUEUE}"]
+

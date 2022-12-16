@@ -12,6 +12,7 @@ __author__ = 'Lorenzo Carnevale <lcarnevale@unime.it>'
 __credits__ = ''
 __description__ = 'Reader class'
 
+import pika
 import os
 import cv2
 import time
@@ -24,10 +25,11 @@ import torch.backends.cudnn as cudnn
 from models.experimental import attempt_load
 from utils.general import non_max_suppression
 from utils.params import Parameters
+from rabbit.send import Publisher
 
 class Reader:
 
-    def __init__(self, static_files_potential, static_files_detection, model_path, mutex, verbosity, logging_path) -> None:
+    def __init__(self, static_files_potential, static_files_detection, model_path, mutex, verbosity, logging_path, rhost, rport, rusername, rpassword, rqueue) -> None:
         self.__static_files_potential = static_files_potential
         self.__static_files_detection = static_files_detection
         self.__mutex = mutex
@@ -35,6 +37,11 @@ class Reader:
         self.__params = Parameters(model_path)
         self.__model, self.__labels = self.__load_yolov5_model()
         self.__setup_logging(verbosity, logging_path)
+        self.rhost = rhost
+        self.rport = rport
+        self.rusername = rusername
+        self.rpassword = rpassword
+        self.rqueue = rqueue
 
     def __setup_logging(self, verbosity, path):
         format = "%(asctime)s %(filename)s:%(lineno)d %(levelname)s - %(message)s"
@@ -56,6 +63,10 @@ class Reader:
         )
 
     def __reader_job(self):
+        ##### initiate imported class ############
+        file_to_send = Publisher(self.rhost, self.rport, self.rusername, self.rpassword, self.rqueue)
+        file_to_send.connect()
+        ##########################################
         while True:
             if not self.__potential_folder_is_empty():
                 self.__mutex.acquire()
@@ -72,6 +83,10 @@ class Reader:
                 filename = os.path.basename(oldest_frame_path)
                 absolute_path = '%s/%s' % (self.__static_files_detection, filename)
                 image.save(absolute_path)
+                ##### Send Data as string to RabbitMQ ######
+                with open(absolute_path, 'rb') as rabbitfile:
+                    file_to_send.submit(rabbitfile)
+                #### done ####
                 time.sleep(0.1)       
 
     def __potential_folder_is_empty(self):

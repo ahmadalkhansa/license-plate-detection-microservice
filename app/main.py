@@ -12,6 +12,7 @@ __author__ = 'Lorenzo Carnevale <lcarnevale@unime.it>'
 __credits__ = ''
 __description__ = 'License Plate Detection'
 
+import pika
 import os
 import yaml
 import argparse
@@ -37,6 +38,31 @@ def main():
                         dest='verbosity',
                         help='Logging verbosity level',
                         action="store_true")
+    
+    parser.add_argument('-b', '--rhost',
+                        help='RabbitMQ broker',
+                        type=str,
+                        required=True)
+
+    parser.add_argument('-p', '--rport',
+                        help='RabbitMQ listening port',
+                        type=int,
+                        required=True)
+  
+    parser.add_argument('-u', '--ruser',
+                        help='RabbitMQ username',
+                        type=str,
+                        required=True)
+
+    parser.add_argument('-s', '--rpassword',
+                        help='RabbitMQ password',
+                        type=str,
+                        required=True)
+
+    parser.add_argument('-q', '--rqueue',
+                        help='RabbitMQ queue',
+                        type=str,
+                        required=True)
 
     options = parser.parse_args()
     verbosity = options.verbosity
@@ -49,7 +75,7 @@ def main():
         os.makedirs(logdir_name)
 
     writer = setup_writer(config['restful'], config['static_files'], mutex, verbosity, logging_path)
-    reader = setup_reader(config['detection'], config['static_files'], mutex, verbosity, logging_path)
+    reader = setup_reader(config['detection'], config['static_files'], mutex, verbosity, logging_path, options.rhost, options.rport, options.ruser, options.rpassword, options.rqueue)
     writer.start()
     reader.start()
 
@@ -59,8 +85,8 @@ def setup_writer(config, config_files, mutex, verbosity, logging_path):
     writer.setup()
     return writer
 
-def setup_reader(config, config_files, mutex, verbosity, logging_path):
-    reader = Reader(config_files['potential'], config_files['detected'], config['model_path'], mutex, verbosity, logging_path)
+def setup_reader(config, config_files, mutex, verbosity, logging_path, rhost, rport, user, password, queue):
+    reader = Reader(config_files['potential'], config_files['detected'], config['model_path'], mutex, verbosity, logging_path, rhost, rport, user, password, queue)
     reader.setup()
     return reader
 
